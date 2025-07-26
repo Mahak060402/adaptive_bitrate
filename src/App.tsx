@@ -55,6 +55,8 @@ segment_1080p_003.ts
 #EXT-X-ENDLIST`
 }
 
+type LogType = 'info' | 'warning' | 'error'
+
 interface QualityLevel {
   id: string 
   bandwidth: number
@@ -87,7 +89,7 @@ interface LogEntry {
   id: string
   message: string
   timestamp: string
-  type: 'info' | 'warning' | 'error'
+  type: LogType
 }
 
 interface BufferEvent {
@@ -530,42 +532,59 @@ const AdaptiveBitratePlayer: React.FC = () => {
       
       {/* Video Element */}
       {/* Video Element with Accessibility Support */}
-      <div style={{ position: 'relative', marginBottom: '20px' }}>
-        <video 
-          ref={videoRef}
-          style={{ width: '100%', height: 'auto', backgroundColor: '#000' }}
-          controls={false}
-          aria-label="Adaptive bitrate video player"
-          role="application"
+      {/* Video Element with Proper Accessibility Support */}
+<div style={{ position: 'relative', marginBottom: '20px' }}>
+  <video 
+    ref={videoRef}
+    style={{ width: '100%', height: 'auto', backgroundColor: '#000' }}
+    controls={false}
+    aria-label="Adaptive bitrate video player"
+    aria-describedby="player-status"
+    tabIndex={0}
+    onKeyDown={(e) => {
+      // Add keyboard accessibility
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault()
+        isPlaying ? handlePause() : handlePlay()
+      }
+    }}
+  />
+  {/* Hidden status element for screen readers */}
+  <div 
+    id="player-status" 
+    className="sr-only"
+    aria-live="polite"
+    style={{ 
+      position: 'absolute', 
+      left: '-10000px', 
+      width: '1px', 
+      height: '1px', 
+      overflow: 'hidden' 
+    }}
+  >
+    {isPlaying ? 'Playing' : 'Paused'} - 
+    Current quality: {qualityLevels[currentQuality]?.resolution || 'Unknown'} - 
+    Buffer: {bufferHealth.currentBuffer.toFixed(1)} seconds
+  </div>
+      {loading && (
+        <div style={{ 
+          position: 'absolute', 
+          top: '50%', 
+          left: '50%', 
+          transform: 'translate(-50%, -50%)',
+          color: 'white',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          padding: '10px',
+          borderRadius: '5px'
+        }}
+        role="status"
+        aria-label="Loading video content"
         >
-          {/* Add caption track for accessibility compliance */}
-          <track
-            kind="captions"
-            src="data:text/vtt;base64,V0VCVlRUCgowMDowMDowMC4wMDAgLS0+IDAwOjAwOjEwLjAwMAoqIEFkYXB0aXZlIGJpdHJhdGUgcGxheWVyIGluaXRpYWxpemVkCgowMDowMDoxMC4wMDEgLS0+IDAwOjAwOjIwLjAwMAoqIFF1YWxpdHkgYWRhcHRhdGlvbiBhY3RpdmU="
-            srcLang="en"
-            label="English Captions"
-            default
-          />
-          {/* Fallback message for unsupported browsers */}
-          <p>Your browser does not support the video element. Please upgrade to a modern browser.</p>
-        </video>
-        
-        {loading && (
-          <div style={{ 
-            position: 'absolute', 
-            top: '50%', 
-            left: '50%', 
-            transform: 'translate(-50%, -50%)',
-            color: 'white',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: '10px',
-            borderRadius: '5px',
-            zIndex: 10
-          }}>
-            Loading...
-          </div>
-        )}
-      </div>
+          Loading...
+        </div>
+      )}
+    </div>
+
 
       
       {/* Controls */}
