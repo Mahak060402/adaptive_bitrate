@@ -488,32 +488,33 @@ const AdaptiveBitratePlayer: React.FC = () => {
   const bufferMonitorRef = useRef<ReturnType<typeof setInterval> | null>(null)
   
   const logEvent = useCallback((message: string, type: LogType = 'info') => {
-    const timestamp = new Date().toISOString()
-    const logEntry: LogEntry = {
-      id: `${timestamp}_${Math.random().toString(36).substring(2, 11)}`,
-      message,
-      timestamp,
-      type
-    }
-    console.log(`[${timestamp}] ${type.toUpperCase()}: ${message}`)
-    setLogs(prev => [...prev.slice(-49), logEntry])
+  const timestamp = new Date().toISOString()
+  const logEntry: LogEntry = {
+    id: `${timestamp}_${crypto.randomUUID().slice(0, 8)}`, // Secure UUID generation
+    message,
+    timestamp,
+    type
+  }
+  console.log(`[${timestamp}] ${type.toUpperCase()}: ${message}`)
+  setLogs(prev => [...prev.slice(-49), logEntry])
     
     if (type === 'warning' || type === 'error') {
-      const bufferEvent: BufferEvent = {
-        id: `${timestamp}_${Math.random().toString(36).substring(2, 11)}`,
-        timestamp,
-        type,
-        message
-      }
+    const bufferEvent: BufferEvent = {
+      id: `${timestamp}_${crypto.randomUUID().slice(0, 8)}`, // Secure UUID generation
+      timestamp,
+      type,
+      message
+    }
 
       
-      setMetrics(prev => ({
-        ...prev,
-        bufferEvents: [...prev.bufferEvents.slice(-19), bufferEvent]
-      }))
-    }
-  }, [])
-  
+    setMetrics(prev => ({
+      ...prev,
+      bufferEvents: [...prev.bufferEvents.slice(-19), bufferEvent]
+    }))
+  }
+}, [])
+
+
   // Initialize player and load manifest
   // Replace the deeply nested MediaSource initialization with this:
   useEffect(() => {
