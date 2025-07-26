@@ -490,7 +490,7 @@ const AdaptiveBitratePlayer: React.FC = () => {
   const logEvent = useCallback((message: string, type: LogType = 'info') => {
     const timestamp = new Date().toISOString()
     const logEntry: LogEntry = {
-      id: `${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `${timestamp}_${Math.random().toString(36).substring(2, 11)}`,
       message,
       timestamp,
       type
@@ -500,11 +500,12 @@ const AdaptiveBitratePlayer: React.FC = () => {
     
     if (type === 'warning' || type === 'error') {
       const bufferEvent: BufferEvent = {
-        id: `${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `${timestamp}_${Math.random().toString(36).substring(2, 11)}`,
         timestamp,
         type,
         message
       }
+
       
       setMetrics(prev => ({
         ...prev,
@@ -514,6 +515,7 @@ const AdaptiveBitratePlayer: React.FC = () => {
   }, [])
   
   // Initialize player and load manifest
+  // Replace the deeply nested MediaSource initialization with this:
   useEffect(() => {
     const initializePlayer = async () => {
       try {
@@ -533,31 +535,46 @@ const AdaptiveBitratePlayer: React.FC = () => {
           mediaSourceRef.current = mediaSource
           videoRef.current.src = URL.createObjectURL(mediaSource)
           
-          mediaSource.addEventListener('sourceopen', () => {
-            try {
-              const sourceBuffer = mediaSource.addSourceBuffer('video/mp2t')
-              sourceBufferRef.current = sourceBuffer
-              
-              sourceBuffer.addEventListener('updateend', () => {
-                if (!sourceBuffer.updating && videoRef.current) {
-                  // Ensure proper playback positioning
-                  if (videoRef.current.currentTime === 0 && sourceBuffer.buffered.length > 0) {
-                    videoRef.current.currentTime = sourceBuffer.buffered.start(0)
-                  }
-                }
-              })
-              
-              logEvent('MediaSource initialized')
-            } catch (error) {
-              logEvent(`MediaSource setup failed: ${error}`, 'error')
-            }
-          })
+          mediaSource.addEventListener('sourceopen', handleSourceOpen)
         }
         
       } catch (error) {
         logEvent(`Initialization failed: ${error}`, 'error')
       } finally {
         setLoading(false)
+      }
+    }
+    
+    // Extract nested function to reduce nesting
+    const handleSourceOpen = () => {
+      try {
+        const mediaSource = mediaSourceRef.current
+        if (!mediaSource) return
+        
+        const sourceBuffer = mediaSource.addSourceBuffer('video/mp2t')
+        sourceBufferRef.current = sourceBuffer
+        
+        sourceBuffer.addEventListener('updateend', handleUpdateEnd)
+        logEvent('MediaSource initialized')
+      } catch (error) {
+        logEvent(`MediaSource setup failed: ${error}`, 'error')
+      }
+    }
+    
+    // Extract updateend handler to separate function
+    const handleUpdateEnd = () => {
+      const sourceBuffer = sourceBufferRef.current
+      const video = videoRef.current
+      
+      if (!sourceBuffer?.updating && video) {
+        // Ensure proper playback positioning
+        if (
+          video.currentTime === 0 &&
+          sourceBuffer &&
+          sourceBuffer.buffered.length > 0
+        ) {
+          video.currentTime = sourceBuffer.buffered.start(0)
+        }
       }
     }
     
@@ -568,6 +585,7 @@ const AdaptiveBitratePlayer: React.FC = () => {
       if (bufferMonitorRef.current) clearInterval(bufferMonitorRef.current)
     }
   }, [logEvent])
+
   
   // Network condition monitoring
   useEffect(() => {
@@ -748,20 +766,36 @@ const AdaptiveBitratePlayer: React.FC = () => {
       {/* Video Player Section */}
       <div style={styles.card}>
         <div style={styles.videoContainer}>
-          <video 
-            ref={videoRef}
-            style={styles.video}
-            controls={false}
-            aria-label="Adaptive bitrate video player"
-            aria-describedby="player-status"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === ' ' || e.key === 'Enter') {
-                e.preventDefault()
-                isPlaying ? handlePause() : handlePlay()
-              }
-            }}
-          />
+      <video 
+        ref={videoRef}
+        style={styles.video}
+        controls={false}
+        aria-label="Adaptive bitrate video player"
+        aria-describedby="player-status"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            isPlaying ? handlePause() : handlePlay()
+          }
+        }}
+      >
+        {/* Add caption track for accessibility */}
+        <track
+          kind="captions"
+          src="data:text/vtt,WEBVTT%0A%0A00:00:00.000 --> 00:00:30.000%0AAdaptive bitrate video content"
+          srcLang="en"
+          label="English"
+          default
+        />
+        <track
+          kind="descriptions"
+          src="data:text/vtt,WEBVTT%0A%0A00:00:00.000 --> 00:00:30.000%0AVideo demonstrates adaptive bitrate streaming technology"
+          srcLang="en"
+          label="Audio Description"
+        />
+      </video>
+
           
           {/* Hidden status for screen readers */}
           <div 
@@ -780,21 +814,27 @@ const AdaptiveBitratePlayer: React.FC = () => {
             Buffer: {bufferHealth.currentBuffer.toFixed(1)} seconds
           </div>
           
-          {loading && (
-            <div style={styles.loadingOverlay} role="status" aria-label="Loading video content">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ 
-                  width: '16px', 
-                  height: '16px', 
-                  border: '2px solid #ffffff40', 
-                  borderTop: '2px solid #ffffff', 
-                  borderRadius: '50%', 
-                  animation: 'spin 1s linear infinite' 
-                }}></div>
-                Loading...
-              </div>
-            </div>
-          )}
+        
+      {loading && (
+        <output 
+          style={styles.loadingOverlay}
+          aria-label="Loading video content"
+          aria-live="polite"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ 
+              width: '16px', 
+              height: '16px', 
+              border: '2px solid #ffffff40', 
+              borderTop: '2px solid #ffffff', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }}></div>
+            <span>Loading video content...</span>
+          </div>
+        </output>
+      )}
+
         </div>
         
         {/* Progress Bar */}
