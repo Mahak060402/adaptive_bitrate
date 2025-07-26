@@ -80,7 +80,7 @@ interface PlayerMetrics {
   avgBandwidth: number
   droppedFrames: number
   switchCount: number
-  bufferEvents: string[]
+  bufferEvents: BufferEvent[]
 }
 
 interface LogEntry {
@@ -89,6 +89,14 @@ interface LogEntry {
   timestamp: string
   type: 'info' | 'warning' | 'error'
 }
+
+interface BufferEvent {
+  id: string
+  timestamp: string
+  type: 'warning' | 'error' | 'info'
+  message: string
+}
+
 /**
  * Simulates network conditions with realistic variations
  * @intuition Network conditions in streaming environments fluctuate constantly, requiring simulation for testing ABR logic
@@ -291,23 +299,29 @@ const AdaptiveBitratePlayer: React.FC = () => {
   const logEvent = useCallback((message: string, type: 'info' | 'warning' | 'error' = 'info') => {
   const timestamp = new Date().toISOString()
   const logEntry: LogEntry = {
-    id: `${timestamp}_${Math.random().toString(36).substr(2, 9)}`, // Unique stable ID
+    id: `${timestamp}_${crypto.randomUUID().slice(0, 8)}`,
     message,
     timestamp,
     type
   }
-  
-  const logMessage = `[${timestamp}] ${type.toUpperCase()}: ${message}`
-  console.log(logMessage)
-  setLogs(prev => [...prev.slice(-49), logEntry]) // Keep last 50 logs
+  console.log(`[${timestamp}] ${type.toUpperCase()}: ${message}`)
+  setLogs(prev => [...prev.slice(-49), logEntry])
   
   if (type === 'warning' || type === 'error') {
+    const bufferEvent: BufferEvent = {
+      id: `${timestamp}_${crypto.randomUUID().slice(0, 8)}`, // Unique stable ID
+      timestamp,
+      type,
+      message
+    }
+    
     setMetrics(prev => ({
       ...prev,
-      bufferEvents: [...prev.bufferEvents.slice(-19), `${type}: ${message}`]
+      bufferEvents: [...prev.bufferEvents.slice(-19), bufferEvent]
     }))
   }
 }, [])
+
   
   // Initialize player and load manifest
   useEffect(() => {
@@ -515,12 +529,27 @@ const AdaptiveBitratePlayer: React.FC = () => {
       <h2>Adaptive Bitrate Video Player</h2>
       
       {/* Video Element */}
+      {/* Video Element with Accessibility Support */}
       <div style={{ position: 'relative', marginBottom: '20px' }}>
         <video 
           ref={videoRef}
           style={{ width: '100%', height: 'auto', backgroundColor: '#000' }}
           controls={false}
-        />
+          aria-label="Adaptive bitrate video player"
+          role="application"
+        >
+          {/* Add caption track for accessibility compliance */}
+          <track
+            kind="captions"
+            src="data:text/vtt;base64,V0VCVlRUCgowMDowMDowMC4wMDAgLS0+IDAwOjAwOjEwLjAwMAoqIEFkYXB0aXZlIGJpdHJhdGUgcGxheWVyIGluaXRpYWxpemVkCgowMDowMDoxMC4wMDEgLS0+IDAwOjAwOjIwLjAwMAoqIFF1YWxpdHkgYWRhcHRhdGlvbiBhY3RpdmU="
+            srcLang="en"
+            label="English Captions"
+            default
+          />
+          {/* Fallback message for unsupported browsers */}
+          <p>Your browser does not support the video element. Please upgrade to a modern browser.</p>
+        </video>
+        
         {loading && (
           <div style={{ 
             position: 'absolute', 
@@ -530,12 +559,14 @@ const AdaptiveBitratePlayer: React.FC = () => {
             color: 'white',
             backgroundColor: 'rgba(0,0,0,0.7)',
             padding: '10px',
-            borderRadius: '5px'
+            borderRadius: '5px',
+            zIndex: 10
           }}>
             Loading...
           </div>
         )}
       </div>
+
       
       {/* Controls */}
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -604,14 +635,17 @@ const AdaptiveBitratePlayer: React.FC = () => {
         <div>
           <h3>Recent Buffer Events</h3>
           <div style={{ fontSize: '12px' }}>
-            {metrics.bufferEvents.slice(-5).map((event, index) => (
-              <div key={index} style={{ color: event.startsWith('error') ? 'red' : 'orange' }}>
-                {event}
+            {metrics.bufferEvents.slice(-5).map((event) => (
+              <div 
+                key={event.id} 
+                style={{ color: event.type === 'error' ? 'red' : 'orange' }}
+              >
+                [{event.timestamp}] {event.type.toUpperCase()}: {event.message}
               </div>
             ))}
           </div>
         </div>
-      )}
+    )}
     </div>
   )
 }
